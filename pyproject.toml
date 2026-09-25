@@ -1,0 +1,25 @@
+[project]
+name = "mcp-server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Swayam", email = "kalambeswayam@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "mcp[cli]>=2.2.0",
+    "passlib[bcrypt]>=1.7.4",
+    "psycopg[binary]>=3.3.6",
+    "pyjwt>=2.15.0",
+    "sqlalchemy>=2.1.0",
+]
+
+[project.scripts]
+mcp-server = "mcp_server:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
