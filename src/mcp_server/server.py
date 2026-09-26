@@ -92,7 +92,7 @@ async def create_product(
     return response.json()
 
 
-# MCP HTTP application
+# Create MCP HTTP endpoint
 
 mcp_app = mcp.streamable_http_app(
     streamable_http_path="/mcp",
@@ -110,21 +110,21 @@ mcp_app = mcp.streamable_http_app(
 )
 
 
-# FastAPI application
+# Start/stop MCP with FastAPI
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with mcp_app.router.lifespan_context(mcp_app):
         yield
 
-
+# Create FastAPI app
 app = FastAPI(
     title="MCP Server",
     lifespan=lifespan,
 )
 
 
-# OAuth metadata
+# Tell client: Auth0 protects this MCP
 
 @app.get("/.well-known/oauth-protected-resource")
 async def protected_resource_metadata():
@@ -149,20 +149,29 @@ async def protected_resource_metadata_mcp():
         ],
     }
 
-
+# Tell client how to login and get token
 @app.get("/.well-known/oauth-authorization-server")
 async def oauth_authorization_server():
     return {
         "issuer": f"{AUTH0_DOMAIN}/",
+        # Login
         "authorization_endpoint": (
             f"{AUTH0_DOMAIN}/authorize"
             "?audience=https%3A%2F%2Fgrumbly-importer-amplify.ngrok-free.dev%2Fmcp"
         ),
+
+        # Get token
         "token_endpoint": f"{AUTH0_DOMAIN}/oauth/token",
+
+        # Verify token
         "jwks_uri": f"{AUTH0_DOMAIN}/.well-known/jwks.json",
+
+        # OAuth settings
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code"],
         "code_challenge_methods_supported": ["S256"],
+
+        # Available permissions
         "scopes_supported": [
             "openid",
             "profile",
@@ -173,13 +182,13 @@ async def oauth_authorization_server():
     }
 
 
-# Auth test
+# # Test: is the user authenticated?
 
-@app.get("/auth-test")
-async def auth_test(user=Depends(auth0.require_auth())):
-    return user
+# @app.get("/auth-test")
+# async def auth_test(user=Depends(auth0.require_auth())):
+#     return user
 
 
-# Mount MCP
+# Connect MCP to FastAPI
 
 app.mount("/", mcp_app)
