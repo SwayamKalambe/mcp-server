@@ -61,5 +61,3 @@ class OAuthTokenVerifier(TokenVerifier):
         except Exception:
             return None
 
-        RESOURCE = AUTH0_AUDIENCE
-
