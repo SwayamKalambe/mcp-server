@@ -8,12 +8,14 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "auth0-fastapi>=1.0.0b11",
+    "auth0-fastapi-api>=1.0.0b9",
+    "auth0-server-python>=1.0.0b1,<2",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
     "mcp[cli]>=2.2.0",
     "passlib[bcrypt]>=1.7.4",
     "psycopg[binary]>=3.3.6",
-    "pyjwt>=2.15.0",
     "sqlalchemy>=2.1.0",
 ]
 
