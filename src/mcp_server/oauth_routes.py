@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter
 
 from .auth0 import AUTH0_DOMAIN, RESOURCE
@@ -12,7 +11,7 @@ router = APIRouter()
 async def protected_resource_metadata():
     return {
         "resource": RESOURCE,
-        "authorization_servers": [AUTH0_DOMAIN],
+        "authorization_servers": [f"https://{AUTH0_DOMAIN}/"],
         "scopes_supported": [
             "products:read",
             "products:write",
@@ -25,7 +24,7 @@ async def protected_resource_metadata():
 async def protected_resource_metadata_mcp():
     return {
         "resource": RESOURCE,
-        "authorization_servers": [AUTH0_DOMAIN],
+        "authorization_servers": [f"https://{AUTH0_DOMAIN}/"],
         "scopes_supported": [
             "products:read",
             "products:write",
@@ -37,19 +36,22 @@ async def protected_resource_metadata_mcp():
 @router.get("/.well-known/oauth-authorization-server")
 async def oauth_authorization_server():
     return {
-        "issuer": f"{AUTH0_DOMAIN}/",
+        "issuer": f"https://{AUTH0_DOMAIN}/",
 
         # User login
         "authorization_endpoint": (
-            f"{AUTH0_DOMAIN}/authorize"
-            "?audience=https%3A%2F%2Fgrumbly-importer-amplify.ngrok-free.dev%2Fmcp"
+            f"https://{AUTH0_DOMAIN}/authorize"
         ),
 
         # Get access token
-        "token_endpoint": f"{AUTH0_DOMAIN}/oauth/token",
+        "token_endpoint": (
+            f"https://{AUTH0_DOMAIN}/oauth/token"
+        ),
 
         # Verify token
-        "jwks_uri": f"{AUTH0_DOMAIN}/.well-known/jwks.json",
+        "jwks_uri": (
+            f"https://{AUTH0_DOMAIN}/.well-known/jwks.json"
+        ),
 
         # OAuth flow
         "response_types_supported": ["code"],
@@ -65,4 +67,3 @@ async def oauth_authorization_server():
             "products:write",
         ],
     }
-
