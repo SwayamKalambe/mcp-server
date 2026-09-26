@@ -1,252 +1,129 @@
-# MCP Server + FastAPI
+# MCP Server and Product API
 
-A simple MCP server that connects AI clients to a FastAPI backend.
+A Python service with two HTTP applications:
 
-The project includes:
+- A FastAPI product API backed by PostgreSQL.
+- An MCP server that exposes product operations as tools and verifies access tokens with Auth0.
 
-* FastAPI product APIs
-* User registration and login
-* Password hashing with bcrypt
-* JWT authentication
-* JWT scopes for authorization
-* MCP tools for product operations
-* Streamable HTTP MCP server
-* MCP Inspector for testing
+The MCP server listens on port `8001` and forwards product requests to the API on port `8000`.
 
-## Architecture
+## Requirements
 
-```text
-AI Agent / MCP Inspector
-          |
-          | Bearer JWT
-          v
-    MCP Server :8001
-          |
-          | HTTP
-          v
-    FastAPI :8000
-          |
-          v
-      PostgreSQL
-```
+- Python 3.13 or newer
+- [uv](https://docs.astral.sh/uv/)
+- PostgreSQL
+- An Auth0 tenant and API configured to issue access tokens for the MCP resource
+- Node.js and npm/npx if you want to use MCP Inspector
 
-## Project Structure
+## Configuration
 
-```text
-mcp-server/
-├── .env
-├── .gitignore
-├── pyproject.toml
-├── README.md
-├── src/
-│   ├── api/
-│   │   ├── database.py
-│   │   ├── main.py
-│   │   ├── create_tables.py
-│   │   ├── products/
-│   │   └── users/
-│   │
-│   └── mcp_server/
-│       ├── auth.py
-│       ├── client.py
-│       └── server.py
-└── uv.lock
-```
-
-## Environment
-
-Create `.env` in the project root:
+Create a `.env` file in the repository root:
 
 ```env
-JWT_SECRET=your-secret-key
+DATABASE_URL=postgresql+psycopg://postgres:password@localhost:5432/mcp_server
+AUTH0_DOMAIN=your-tenant.us.auth0.com
+AUTH0_AUDIENCE=https://your-api-identifier
 ```
 
-Do not commit `.env`.
+`AUTH0_DOMAIN` is the Auth0 tenant domain without `https://`. `AUTH0_AUDIENCE` must match the identifier configured for your Auth0 API. The code uses this value as the MCP resource and validates incoming bearer tokens against it. Keep `.env` private and do not commit credentials.
 
-## Install Dependencies
+The MCP transport configuration in `src/mcp_server/server.py` currently includes a development ngrok hostname in its allowed hosts/origins and OAuth metadata. Update those values there if you expose the server under a different public hostname.
+
+## Install
+
+From the repository root:
 
 ```bash
 uv sync
 ```
 
-## Run FastAPI
+## Initialize the database
 
-From the project root:
+Create the PostgreSQL database named in `DATABASE_URL`, then create the product table:
+
+```bash
+uv run python -m api.create_tables
+```
+
+## Run the services
+
+Start the product API in one terminal:
 
 ```bash
 uv run uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-FastAPI:
-
-```text
-http://127.0.0.1:8000
-```
-
-Swagger:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-## Run MCP Server
-
-Open another terminal:
+Start the MCP server in a second terminal:
 
 ```bash
 uv run uvicorn mcp_server.server:app --host 127.0.0.1 --port 8001 --reload
 ```
 
-MCP endpoint:
+The API provides interactive documentation at <http://127.0.0.1:8000/docs>. The MCP endpoint is <http://127.0.0.1:8001/mcp>.
 
-```text
-http://127.0.0.1:8001/mcp
-```
+## Product API
 
-## Authentication
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/` | API health/cover response |
+| `POST` | `/create-product` | Create a product |
+| `GET` | `/retrieve-all-products` | List products |
+| `GET` | `/retrieve-product/{product_id}` | Retrieve a product by UUID |
 
-Users can register through:
-
-```text
-POST /create-user
-```
-
-Login through:
-
-```text
-POST /login
-```
-
-Login returns a JWT:
+Example create request:
 
 ```json
 {
-  "access_token": "eyJ...",
-  "token_type": "bearer"
+  "product_name": "Example product",
+  "price": 25,
+  "description": "A sample product",
+  "quantity": 4
 }
 ```
 
-The JWT contains:
+`quantity` must be greater than zero. The API does not currently add authentication middleware; MCP tool access is protected by Auth0 token verification and scope checks.
 
-* `sub` — user ID
-* `scope` — user permissions
-* `iat` — issued time
-* `exp` — expiration time
+## MCP tools and scopes
 
-## Scopes
+The server exposes these tools:
 
-Example:
+| Tool | Required scope | Description |
+| --- | --- | --- |
+| `get_products` | `products:read` | List all products |
+| `get_product` | `products:read` | Get one product by ID |
+| `create_product` | `products:write` | Create a product |
 
-```text
-s_read
-→ products:read
-```
+Configure the Auth0 API and clients to issue the required scopes. Requests to the MCP endpoint must include an Auth0 access token as a bearer token.
 
-```text
-s_write
-→ products:read products:write
-```
+## Test with MCP Inspector
 
-Available permissions:
-
-```text
-products:read
-products:write
-```
-
-## MCP Tools
-
-### `get_products`
-
-Requires:
-
-```text
-products:read
-```
-
-### `get_product`
-
-Requires:
-
-```text
-products:read
-```
-
-### `create_product`
-
-Requires:
-
-```text
-products:write
-```
-
-## MCP Inspector
-
-Start Inspector:
+Run Inspector:
 
 ```bash
 npx @modelcontextprotocol/inspector
 ```
 
-Connect using:
+Connect with the Streamable HTTP transport and URL `http://127.0.0.1:8001/mcp`. Provide an Auth0 access token with the needed scope when prompted by the client, or configure the Inspector request header as:
 
 ```text
-Transport: Streamable HTTP
-URL: http://127.0.0.1:8001/mcp
+Authorization: Bearer <access-token>
 ```
 
-Add the JWT as an HTTP header:
+The MCP application also publishes OAuth protected-resource and authorization-server metadata under `/.well-known/` routes. These metadata routes currently use a development Auth0 tenant and ngrok resource URL configured in `src/mcp_server/server.py`; update them for your deployment.
+
+## Project layout
 
 ```text
-Authorization: Bearer YOUR_JWT
-```
-
-Then the available MCP tools can be tested directly from Inspector.
-
-## Development
-
-Run both servers in separate terminals:
-
-### Terminal 1
-
-```bash
-uv run uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-### Terminal 2
-
-```bash
-uv run uvicorn mcp_server.server:app --host 127.0.0.1 --port 8001 --reload
-```
-
-### Terminal 3 — Inspector
-
-```bash
-npx @modelcontextprotocol/inspector
-```
-
-## Authentication Flow
-
-```text
-User
- ↓
-POST /login
- ↓
-JWT
- ↓
-MCP Client / Inspector
- ↓
-Authorization: Bearer JWT
- ↓
-MCP Server
- ↓
-Verify JWT
- ↓
-Check scope
- ↓
-MCP Tool
- ↓
-FastAPI API
- ↓
-Database
+src/
+├── api/
+│   ├── main.py                 # FastAPI product API
+│   ├── database.py             # SQLAlchemy engine and session
+│   ├── create_tables.py        # Database table initialization
+│   └── products/
+│       ├── models.py
+│       ├── routes.py
+│       └── schemas.py
+└── mcp_server/
+    ├── auth0.py                # Auth0 integration and token verifier
+    └── server.py               # MCP tools, OAuth metadata, HTTP app
 ```
